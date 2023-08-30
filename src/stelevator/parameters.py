@@ -36,7 +36,7 @@ class Initial(_ParameterWrapper):
             '_'.join([parameter.name, 'init']), 
             '_'.join([parameter.symbol, r'\mathrm{init}']),
             parameter.unit,
-            f"Initial {desc}."
+            f"Initial {desc}"
         )
 
 
@@ -49,7 +49,7 @@ class Surface(_ParameterWrapper):
             '_'.join([parameter.name, 'surf']), 
             '_'.join([parameter.symbol, r'\mathrm{surf}']),
             parameter.unit,
-            f"Surface {desc}."
+            f"Surface {desc}"
         )
 
 
@@ -60,7 +60,7 @@ class Log10(_ParameterWrapper):
             '_'.join(['log', parameter.name]), 
             rf'\log({parameter.symbol})',
             u.dex(parameter.unit),
-            f"Log base-10 {desc}."
+            f"Base-10 logarithm of {desc}"
         )
 
 
