@@ -9,6 +9,11 @@ from .parameters import (
 )
 from .constraints import ConstraintList, real, interval
 
+
+def _elu(x, alpha=1.0):
+	return x if x >= 0 else alpha*(np.exp(x) -1)
+
+
 class Emulator(object):
     """Base class for emulators.
 
@@ -25,6 +30,7 @@ class Emulator(object):
         self._outputs = outputs
         self._domain = domain
 
+        # TODO: make 'in units of' optional
         name = self.__class__.__name__
         self._summary = (
             f'{name}\n'
@@ -111,6 +117,42 @@ class _TestEmulator(Emulator):
 
 class MESASolarLikeEmulator(Emulator):
     """Emulator for the MESA solar-like oscillator model from Lyttle et al. (2021)."""
+    def __init__(self):
+        inputs = ParameterList([
+            frac_evol,
+            mass,
+            mixing_length_param,
+            Initial(helium_mass_frac),
+            Initial(metal_mass_frac),
+        ])
+        outputs = ParameterList([
+            Log10(age),
+            effective_temperature,
+            radius,
+            large_freq_sep,
+            Surface(metal_over_hydrogen)
+        ])
+        domain = ConstraintList([
+            interval(0.01, 2.0),
+            interval(0.8, 1.2),
+            interval(1.5, 2.5),
+            interval(0.22, 0.32),
+            interval(0.005, 0.04),
+        ])
+        super().__init__(inputs, outputs, domain=domain)
+        self.input_loc = np.array([0.865, 1.0, 1.9, 0.28, 0.017])
+        self.input_scale = np.array([0.651, 0.118, 0.338, 0.028, 0.011])
+        self.output_loc = np.array([0.79, 5566.772, 1.224, 100.72, 0.081])
+        self.output_scale = np.array([0.467, 601.172, 0.503, 42.582, 0.361])
+        self.weights = None  # TODO: load weights
+        self.bias = None
+
+    def model(self, x):
+        x = np.divide(np.subtract(x, self.input_loc), self.inputs_scale)
+        for w, b in zip(self.weights, self.bias):
+            x = _elu(np.dot(x, w) + b)
+        x = np.dot(x, self.weights[-1]) + self.bias[-1]
+        return np.add(self.output_loc, np.multiply(self.output_scale, x))
 
 
 class MESADeltaScutiEmulator(Emulator):
