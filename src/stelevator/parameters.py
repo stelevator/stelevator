@@ -33,7 +33,7 @@ class Initial(_ParameterWrapper):
     def __init__(self, parameter: Parameter):
         desc = parameter.desc[0].lower() + parameter.desc[1:]
         super().__init__(
-            '_'.join([parameter.name, 'init']), 
+            '_'.join(['init', parameter.name]), 
             '_'.join([parameter.symbol, r'\mathrm{init}']),
             parameter.unit,
             f"Initial {desc}"
@@ -46,7 +46,7 @@ class Surface(_ParameterWrapper):
         self._parameter = parameter
         desc = parameter.desc[0].lower() + parameter.desc[1:]
         super().__init__(
-            '_'.join([parameter.name, 'surf']), 
+            '_'.join(['surf', parameter.name]), 
             '_'.join([parameter.symbol, r'\mathrm{surf}']),
             parameter.unit,
             f"Surface {desc}"
