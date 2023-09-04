@@ -70,8 +70,15 @@ class Emulator(object):
         """ Returns a description of the emulator."""
         print(self._summary)
 
-    def grid(self, **inputs):
-        """Returns a grid of model outputs for the product of the given inputs."""
+    def grid(self, **inputs) -> pd.DataFrame:
+        """Returns a grid of model outputs for the product of the given inputs.
+        
+        Args:
+            **inputs: Keyword arguments for the inputs to the model.
+        
+        Returns:
+            pd.DataFrame: 
+        """
         xi = [np.atleast_1d(inputs.pop(i.name)) for i in self.inputs]
         if len(inputs) > 0:
             warn(f"Unknown keyword arguments have been ignored: {', '.join(inputs.keys())}.")
@@ -84,6 +91,16 @@ class Emulator(object):
 
     def in_domain(self, x: np.ndarray) -> np.ndarray:
         return np.all([d(x[..., i]) for i, d in enumerate(self.domain)], axis=0)
+
+    def error(self, x: np.ndarray) -> np.ndarray:
+        """Return estimate of the error at a given input. This is the truth minus the model output.
+
+        The estimate comes from the emulators test dataset. This could output a distribution.
+
+        If the mean error is zero then its variance can just be added to that of the likelihood
+        during inference.
+        """
+        raise NotImplementedError(f"Error for '{self.__class__.__name__}' is not yet implemented.") 
 
     def __call__(self, x: ArrayLike) -> ArrayLike:
         """Returns the model output for the given input.
