@@ -82,4 +82,4 @@ effective_temperature = Parameter('effective_temperature', r'T_\mathrm{eff}', 'K
 large_freq_sep = Parameter('large_freq_sep', r'\Delta\nu', 'uHz', desc='Asteroseismic large frequency separation')
 rotation_period = Parameter('rotation_period', r'P_\mathrm{rot}', 'day', desc='Stellar rotation period')
 surface_gravity = Parameter('surface_gravity', 'g', 'cm/s2', desc='Stellar surface gravity')
-frac_evol = Parameter('frac_evol', r'f_\mathrm{evo}', desc='Fractional evolutionary phase')
+frac_evol = Parameter('frac_evol', r'f_\mathrm{evol}', desc='Fractional evolutionary phase')
