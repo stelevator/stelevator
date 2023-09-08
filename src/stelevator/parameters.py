@@ -8,7 +8,7 @@ class Parameter(object):
 
     Args:
         name (str): Name of the parameter.
-        symbol (str): Symbol of the parameter. Defaults to None.
+        symbol (str): LaTeX symbol of the parameter. Defaults to None.
         unit (str or astropy.units.Unit): Unit of the parameter. Defaults to None.
         desc (str): Description of the parameter. Defaults to None.
     """
@@ -33,7 +33,7 @@ class Initial(_ParameterWrapper):
     def __init__(self, parameter: Parameter):
         desc = parameter.desc[0].lower() + parameter.desc[1:]
         super().__init__(
-            '_'.join(['init', parameter.name]), 
+            '_'.join([parameter.name, 'init']), 
             '_'.join([parameter.symbol, r'\mathrm{init}']),
             parameter.unit,
             f"Initial {desc}"
@@ -46,7 +46,7 @@ class Surface(_ParameterWrapper):
         self._parameter = parameter
         desc = parameter.desc[0].lower() + parameter.desc[1:]
         super().__init__(
-            '_'.join(['surf', parameter.name]), 
+            '_'.join([parameter.name, 'surf']), 
             '_'.join([parameter.symbol, r'\mathrm{surf}']),
             parameter.unit,
             f"Surface {desc}"
@@ -72,14 +72,14 @@ class ParameterList(_ListSameType):
 
 mass = Parameter('mass', 'M', 'Msun', desc='Stellar mass')
 age = Parameter('age', 't', 'Gyr', desc='Stellar age')
-helium_mass_frac = Parameter('helium_mass_frac', 'Y', desc='Stellar helium mass fraction')
-metal_mass_frac = Parameter('metal_mass_frac', 'Z', desc='Stellar heavy element mass fraction')
-mixing_length_param = Parameter('mixing_length_param', r'\alpha_\mathrm{MLT}', desc='Mixing length parameter')
-metal_over_hydrogen = Parameter('metal_over_hydrogen', r'[\mathrm{M}/\mathrm{H}]', 'dex', desc='Metallicity')
+helium = Parameter('Y', 'Y', desc='Stellar helium mass fraction')
+metals = Parameter('Z', 'Z', desc='Stellar heavy element mass fraction')
+a_mlt = Parameter('a_MLT', r'\alpha_\mathrm{MLT}', desc='Mixing length parameter')
+m_h = Parameter('M_H', r'[\mathrm{M}/\mathrm{H}]', 'dex', desc='Metallicity')
 radius = Parameter('radius', 'R', 'Rsun', desc='Stellar radius')
-luminosity = Parameter('luminosity', 'L', 'Lsun', desc='Stellar luminosity')
-effective_temperature = Parameter('effective_temperature', r'T_\mathrm{eff}', 'K', desc='Stellar effective temperature')
-large_freq_sep = Parameter('large_freq_sep', r'\Delta\nu', 'uHz', desc='Asteroseismic large frequency separation')
-rotation_period = Parameter('rotation_period', r'P_\mathrm{rot}', 'day', desc='Stellar rotation period')
-surface_gravity = Parameter('surface_gravity', 'g', 'cm/s2', desc='Stellar surface gravity')
-frac_evol = Parameter('frac_evol', r'f_\mathrm{evol}', desc='Fractional evolutionary phase')
+luminosity = Parameter('lum', 'L', 'Lsun', desc='Stellar luminosity')
+teff = Parameter('Teff', r'T_\mathrm{eff}', 'K', desc='Stellar effective temperature')
+delta_nu = Parameter('delta_nu', r'\Delta\nu', 'uHz', desc='Asteroseismic large frequency separation')
+p_rot = Parameter('P_rot', r'P_\mathrm{rot}', 'day', desc='Stellar rotation period')
+gravity = Parameter('g', 'g', 'cm/s2', desc='Stellar surface gravity')
+f_evol = Parameter('f_evol', r'f_\mathrm{evol}', desc='Fractional evolutionary phase')
