@@ -55,6 +55,10 @@ class Emulator(object):
     def domain(self) -> ConstraintList:
         return self._domain
 
+    @property
+    def summary(self) -> str:
+        return self._summary
+
     def model(self, x: ArrayLike) -> np.ndarray:
         """Returns the model output for the given input.
 
@@ -67,10 +71,6 @@ class Emulator(object):
             ArrayLike: Model output.
         """
         raise NotImplementedError(f"Model for '{self.__class__.__name__}' is not yet implemented.")
-
-    def print_summary(self) -> None:
-        """ Returns a description of the emulator."""
-        print(self._summary)
 
     def grid(self, **inputs) -> pd.DataFrame:
         """Returns a grid of model outputs for the product of the given inputs.
@@ -123,7 +123,7 @@ class Emulator(object):
         x = np.asarray(x)
         if x.shape[-1] != len(self.inputs):
             raise ValueError(f"Input must have {len(self.inputs)} dimensions.")
-        return self.validate(self.model(x))
+        return self.validate(x, self.model(x))
 
 
 class MESASolarLikeEmulator(Emulator):
