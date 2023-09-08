@@ -1,17 +1,17 @@
+import os, h5py
 import numpy as np
 import pandas as pd
 from warnings import warn
 from numpy.typing import ArrayLike
+from collections import namedtuple
 from .parameters import (
-    Log10, Surface, Initial, ParameterList,
-    frac_evol, mass, helium_mass_frac, metal_mass_frac, mixing_length_param,
-    age, radius, effective_temperature, large_freq_sep, metal_over_hydrogen,
+    ParameterList, Log10, Surface, Initial,
+    f_evol, mass, helium, metals, a_mlt,
+    age, radius, teff, delta_nu, m_h,
 )
 from .constraints import ConstraintList, real, interval
-
-
-def _elu(x, alpha=1.0):
-	return x if x >= 0 else alpha*(np.exp(x) -1)
+from .utils import _DATADIR
+from .nn import elu
 
 
 class Emulator(object):
@@ -28,6 +28,8 @@ class Emulator(object):
     def __init__(self, inputs: ParameterList, outputs: ParameterList, domain: ConstraintList=None):
         self._inputs = inputs
         self._outputs = outputs
+        if domain is None:
+            domain = ConstraintList([real for _ in inputs])
         self._domain = domain
 
         # TODO: make 'in units of' optional
@@ -66,7 +68,7 @@ class Emulator(object):
         """
         raise NotImplementedError(f"Model for '{self.__class__.__name__}' is not yet implemented.")
 
-    def summary(self) -> None:
+    def print_summary(self) -> None:
         """ Returns a description of the emulator."""
         print(self._summary)
 
@@ -77,7 +79,7 @@ class Emulator(object):
             **inputs: Keyword arguments for the inputs to the model.
         
         Returns:
-            pd.DataFrame: 
+            pd.DataFrame: Table with grid inputs as the index and outputs as the columns.
         """
         xi = [np.atleast_1d(inputs.pop(i.name)) for i in self.inputs]
         if len(inputs) > 0:
@@ -95,17 +97,22 @@ class Emulator(object):
     def error(self, x: np.ndarray) -> np.ndarray:
         """Return estimate of the error at a given input. This is the truth minus the model output.
 
-        The estimate comes from the emulators test dataset. This could output a distribution.
+        The estimate comes from the emulators test dataset. This could output a distribution or
+        parameters for a distribution.
 
         If the mean error is zero then its variance can just be added to that of the likelihood
         during inference.
         """
         raise NotImplementedError(f"Error for '{self.__class__.__name__}' is not yet implemented.") 
 
+    def validate(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        y[~self.in_domain(x)] = np.nan
+        return y
+
     def __call__(self, x: ArrayLike) -> ArrayLike:
         """Returns the model output for the given input.
         
-        Inputs are validated against the bounds of the emulator.
+        Inputs are validated against the domain of the emulator. 
 
         Args:
             x (ArrayLike): Input to the model.
@@ -116,38 +123,26 @@ class Emulator(object):
         x = np.asarray(x)
         if x.shape[-1] != len(self.inputs):
             raise ValueError(f"Input must have {len(self.inputs)} dimensions.")
-        y = self.model(x)
-        y[~self.in_domain(x)] = np.nan
-        return y
-
-
-class _TestEmulator(Emulator):
-    def __init__(self):
-        inputs = ParameterList([age, mass, metal_over_hydrogen])
-        outputs = ParameterList([radius, effective_temperature])
-        domain = ConstraintList([real, interval(1, 2), interval(-1, 1)])
-        super().__init__(inputs, outputs, domain=domain)
-
-    def model(self, x: np.ndarray) -> np.ndarray:
-        return np.stack([np.sin(x.sum(axis=-1)), np.cos(x.sum(axis=-1))], axis=-1)
+        return self.validate(self.model(x))
 
 
 class MESASolarLikeEmulator(Emulator):
     """Emulator for the MESA solar-like oscillator model from Lyttle et al. (2021)."""
+    _filename = os.path.join(_DATADIR, 'lyttle21.weights.h5')
     def __init__(self):
         inputs = ParameterList([
-            frac_evol,
+            f_evol,
             mass,
-            mixing_length_param,
-            Initial(helium_mass_frac),
-            Initial(metal_mass_frac),
+            a_mlt,
+            Initial(helium),
+            Initial(metals),
         ])
         outputs = ParameterList([
             Log10(age),
-            effective_temperature,
+            teff,
             radius,
-            large_freq_sep,
-            Surface(metal_over_hydrogen)
+            delta_nu,
+            Surface(m_h)
         ])
         domain = ConstraintList([
             interval(0.01, 2.0),
@@ -157,19 +152,37 @@ class MESASolarLikeEmulator(Emulator):
             interval(0.005, 0.04),
         ])
         super().__init__(inputs, outputs, domain=domain)
-        self.input_loc = np.array([0.865, 1.0, 1.9, 0.28, 0.017])
-        self.input_scale = np.array([0.651, 0.118, 0.338, 0.028, 0.011])
-        self.output_loc = np.array([0.79, 5566.772, 1.224, 100.72, 0.081])
-        self.output_scale = np.array([0.467, 601.172, 0.503, 42.582, 0.361])
-        self.weights = None  # TODO: load weights
-        self.bias = None
+        
+        self.loc = namedtuple('Loc', ['inputs', 'outputs'])(
+            np.array([0.865, 1.0, 1.9, 0.28, 0.017]),
+            np.array([0.79, 5566.772, 1.224, 100.72, 0.081])
+        )
+        self.scale = namedtuple('Scale', ['inputs', 'outputs'])(
+            np.array([0.651, 0.118, 0.338, 0.028, 0.011]),
+            np.array([0.467, 601.172, 0.503, 42.582, 0.361])
+        )
+        self.weights, self.bias = self._load_weights()
+
+    def _load_weights(self):
+        """Loads the model weights and biases from file.
+        
+        Returns:
+            tuple: Tuple of lists containing the weights and biases for each layer.
+        """
+        with h5py.File(self._filename, 'r') as file:
+            weights = [file['dense']['dense']['kernel:0'][()]]
+            bias = [file['dense']['dense']['bias:0'][()]]
+            for i in range(1, 7):
+                weights.append(file[f'dense_{i}'][f'dense_{i}']['kernel:0'][()])
+                bias.append(file[f'dense_{i}'][f'dense_{i}']['bias:0'][()])
+        return weights, bias
 
     def model(self, x):
-        x = np.divide(np.subtract(x, self.input_loc), self.inputs_scale)
-        for w, b in zip(self.weights, self.bias):
-            x = _elu(np.dot(x, w) + b)
+        x = (x - self.loc.inputs) / self.scale.inputs
+        for w, b in zip(self.weights[:-1], self.bias[:-1]):
+            x = elu(np.dot(x, w) + b)
         x = np.dot(x, self.weights[-1]) + self.bias[-1]
-        return np.add(self.output_loc, np.multiply(self.output_scale, x))
+        return self.loc.outputs + self.scale.outputs * x
 
 
 class MESADeltaScutiEmulator(Emulator):
