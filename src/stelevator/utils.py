@@ -1,4 +1,8 @@
+import os
 from collections import UserList
+
+_PACKAGEDIR = os.path.abspath(os.path.dirname(__file__))
+_DATADIR = os.path.join(_PACKAGEDIR, 'data')
 
 
 class _ListSameType(UserList):
